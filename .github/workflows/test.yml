@@ -18,13 +18,45 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: E2E Tests
+      - name: Run integration and E2E Testing
         uses: cypress-io/github-action@v5
         with:
           wait-on: http://localhost:5173
           start: npx vite --host
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_MIKBOOKS_API_URL: ${{ secrets.VITE_MIKBOOKS_API_URL }}
+
+      - name: Generate Coverage Report
+        run: npm run coverage:report
+        env:
+          CI: true
+
+      - name: Publish Coverage HTML Report
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage-report
+          path: ./coverage-report
+
+      - name: Convert HTML to Markdown
+        id: html-to-markdown
+        uses: dskim0713/html-to-markdown-action@v1
+        with:
+          html_path: ./coverage-report/index.html
+
+      - name: Comment Coverage Report on PR
+        uses: actions/github-script@0.11.6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const markdown = fs.readFileSync('markdown.md', 'utf8');
+            github.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: markdown,
+            });
 
   cypress-component-run:
     runs-on: ubuntu-latest
